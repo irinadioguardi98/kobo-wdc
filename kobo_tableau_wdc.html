@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>KoboToolbox Web Data Connector</title>
+    <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
+    <script>
+      (function () {
+        var myConnector = tableau.makeConnector();
+
+        myConnector.getSchema = function (schemaCallback) {
+          const cols = [
+            { id: "_id", dataType: tableau.dataTypeEnum.string },
+            { id: "_submission_time", dataType: tableau.dataTypeEnum.datetime },
+            { id: "field_1", dataType: tableau.dataTypeEnum.string },
+            { id: "field_2", dataType: tableau.dataTypeEnum.string }
+            // Add more fields here based on your actual Kobo form
+          ];
+
+          const tableSchema = {
+            id: "koboData",
+            alias: "KoboToolbox Form Data",
+            columns: cols
+          };
+
+          schemaCallback([tableSchema]);
+        };
+
+        myConnector.getData = function (table, doneCallback) {
+          const token = tableau.connectionData.split("|")[0];
+          const asset_uid = tableau.connectionData.split("|")[1];
+          const url = `https://kf.kobotoolbox.org/api/v2/assets/${asset_uid}/data/`;
+
+          fetch(url, {
+            headers: {
+              "Authorization": `Token ${token}`
+            }
+          })
+            .then(response => response.json())
+            .then(data => {
+              const tableData = data.results.map(entry => ({
+                _id: entry._id,
+                _submission_time: entry._submission_time,
+                field_1: entry["field_1"] || "",
+                field_2: entry["field_2"] || ""
+                // Match these to your actual Kobo field names
+              }));
+
+              table.appendRows(tableData);
+              doneCallback();
+            });
+        };
+
+        tableau.registerConnector(myConnector);
+
+        document.getElementById("submitButton").addEventListener("click", function () {
+          const token = document.getElementById("token").value.trim();
+          const assetUID = document.getElementById("asset_uid").value.trim();
+
+          tableau.connectionData = `${token}|${assetUID}`;
+          tableau.connectionName = "KoboToolbox Live Data";
+          tableau.submit();
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <h2>KoboToolbox → Tableau Web Data Connector</h2>
+    <p>Enter your API token and asset UID:</p>
+    <label for="token">Kobo API Token:</label>
+    <input type="text" id="token" size="60"><br><br>
+    <label for="asset_uid">Asset UID:</label>
+    <input type="text" id="asset_uid" size="30"><br><br>
+    <button id="submitButton">Get Kobo Data</button>
+  </body>
+</html>
