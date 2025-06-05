@@ -13,7 +13,6 @@
             { id: "_submission_time", dataType: tableau.dataTypeEnum.datetime },
             { id: "field_1", dataType: tableau.dataTypeEnum.string },
             { id: "field_2", dataType: tableau.dataTypeEnum.string }
-            // Add more fields here based on your actual Kobo form
           ];
 
           const tableSchema = {
@@ -26,26 +25,36 @@
         };
 
         myConnector.getData = function (table, doneCallback) {
-          const token = tableau.connectionData.split("|")[0];
-          const asset_uid = tableau.connectionData.split("|")[1];
+          const [token, asset_uid] = tableau.connectionData.split("|");
           const url = `https://kf.kobotoolbox.org/api/v2/assets/${asset_uid}/data/`;
+
+          alert("Starting data fetch from Kobo API...");
 
           fetch(url, {
             headers: {
               "Authorization": `Token ${token}`
             }
           })
-            .then(response => response.json())
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`API error: ${response.status} ${response.statusText}`);
+              }
+              return response.json();
+            })
             .then(data => {
               const tableData = data.results.map(entry => ({
                 _id: entry._id,
                 _submission_time: entry._submission_time,
                 field_1: entry["field_1"] || "",
                 field_2: entry["field_2"] || ""
-                // Match these to your actual Kobo field names
               }));
 
+              alert(`Success! Loaded ${tableData.length} records.`);
               table.appendRows(tableData);
+              doneCallback();
+            })
+            .catch(error => {
+              alert("Failed to fetch data from Kobo: " + error.message);
               doneCallback();
             });
         };
